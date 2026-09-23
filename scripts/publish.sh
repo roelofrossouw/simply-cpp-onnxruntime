@@ -32,6 +32,17 @@ cp -a "$extracted_dir/include" "pkg/usr/include/onnxruntime"
 mkdir -p pkg/usr/lib
 cp -a "$extracted_dir"/lib/. pkg/usr/lib/
 
+# Microsoft's own exported onnxruntimeTargets-release.cmake hardcodes
+# ${_IMPORT_PREFIX}/lib64/... for IMPORTED_LOCATION even though the tarball's
+# own directory is "lib" - a real upstream mismatch, not something specific
+# to how we're installing it. /usr/lib64 already exists as a real directory
+# on these systems (just the dynamic linker symlink), so add the one file
+# consumers actually need there rather than replacing the directory.
+mkdir -p pkg/usr/lib64
+for so in pkg/usr/lib/libonnxruntime.so.*.*.*; do
+    ln -sf "../lib/$(basename "$so")" "pkg/usr/lib64/$(basename "$so")"
+done
+
 cat > pkg/DEBIAN/control <<EOF
 Package: $package
 Version: $version
