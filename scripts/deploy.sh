@@ -13,6 +13,21 @@ user="${2:-root}"
 scriptfile=$(realpath "$0")
 scriptpath="${scriptfile%/*}"
 dirpath=$(realpath "$scriptpath"/..)
+
+# Keeps everything this prints (rsync and the build server's output) in a local log named
+# after the server: <suite>/logs/<server>/ inside the simply-cpp suite, otherwise
+# logs/<server>/ in /tmp. Skipped when the caller already logs the run (publish-apt.sh sets
+# SC_LOGGING).
+if [ -z "${SC_LOGGING:-}" ]; then
+    suite=$(git -C "$dirpath" rev-parse --show-superproject-working-tree 2>/dev/null)
+    log_dir="${suite:-${TMPDIR:-/tmp}/simply-cpp}/logs/$server"
+    mkdir -p "$log_dir"
+    log_file="$log_dir/$(date -u +%Y%m%dT%H%M%SZ)-$module.log"
+    echo "Logging to $log_file"
+    SC_LOGGING=1 "$scriptfile" "$@" 2>&1 | tee "$log_file"
+    exit "${PIPESTATUS[0]}"
+fi
+
 pushd "$dirpath" || exit
 echo "Syncing $dirpath to $server:$module"
 rsync -av ./ "$user@$server:/var/www/build/$module/" --exclude=".git" --exclude=".idea" --exclude="work" --exclude="pkg" --delete || exit
