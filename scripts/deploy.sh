@@ -30,7 +30,7 @@ fi
 
 pushd "$dirpath" || exit
 echo "Syncing $dirpath to $server:$module"
-rsync -av ./ "$user@$server:/var/www/build/$module/" --exclude=".git" --exclude=".idea" --exclude="work" --exclude="pkg" --delete || exit
+rsync -av --no-owner --no-group ./ "$user@$server:/var/www/build/$module/" --exclude=".git" --exclude=".idea" --exclude="work" --exclude="pkg" --delete || exit
 ssh "$user@$server" "cd /var/www/build/$module && bash scripts/publish.sh"
 remote_result=$?
 popd || exit
