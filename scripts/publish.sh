@@ -15,7 +15,11 @@ variant="gpu_cuda13"
 tarball="onnxruntime-linux-x64-${variant}-${version}.tgz"
 url="https://github.com/microsoft/onnxruntime/releases/download/v${version}/${tarball}"
 package="simply-cpp-onnxruntime"
-deb_file="${package}_${version}_amd64.deb"
+# A packaging revision (REVISION.txt) when the same upstream version is packaged again, such as
+# with a copyright file: 3.5.0-1~noble sorts after 3.5.0~noble.
+revision=$( [ -f REVISION.txt ] && tr -d ' \t\n' < REVISION.txt || true)
+package_version="${version}${revision:+-$revision}"
+deb_file="${package}_${package_version}_amd64.deb"
 
 mkdir -p work
 if [ ! -f "work/$tarball" ]; then
@@ -45,7 +49,7 @@ done
 
 cat > pkg/DEBIAN/control <<EOF
 Package: $package
-Version: $version
+Version: $package_version
 Architecture: amd64
 Section: libs
 Priority: optional
@@ -70,15 +74,32 @@ EOF
 
 chmod 755 pkg/DEBIAN/postinst pkg/DEBIAN/postrm
 
+# copyright <package directory> <package name>: upstream's licence, which it asks to ship with the
+# binaries, where Debian keeps one (/usr/share/doc/<package>/copyright).
+copyright() {
+    install -d "$1/usr/share/doc/$2"
+    {
+        echo "$2 packages ONNX Runtime $version (https://github.com/microsoft/onnxruntime), licensed under MIT (its third-party notices follow the licence)."
+        echo "The packaging scripts (https://github.com/roelofrossouw/simply-cpp-onnxruntime) are Apache-2.0."
+        echo
+        echo "----- ONNX Runtime: LICENSE -----"
+        cat "$extracted_dir/LICENSE"
+        echo
+        echo "----- ONNX Runtime: ThirdPartyNotices.txt -----"
+        cat "$extracted_dir/ThirdPartyNotices.txt"
+    } > "$1/usr/share/doc/$2/copyright"
+}
+copyright pkg "$package"
+
 dpkg-deb --build --root-owner-group pkg "$deb_file"
 
 pushd /var/www/build/repo >/dev/null
 export GNUPGHOME=/var/www/build/signing
 for dist in jammy noble resolute; do
-    if reprepro list "$dist" | grep -q "$package .*$version"; then
-        echo "$dist: $package $version already published"
+    if reprepro list "$dist" | grep -q "$package .*$package_version"; then
+        echo "$dist: $package $package_version already published"
     else
-        echo "$dist: publishing $package $version"
+        echo "$dist: publishing $package $package_version"
         reprepro remove "$dist" "$package" || true
         reprepro includedeb "$dist" "/var/www/build/sc-onnxruntime/$deb_file"
     fi
