@@ -13,7 +13,7 @@ Linux/apt only.
 ## Install
 
 ```bash
-sudo curl -fsSL https://apt.roelof.co.za/setup.sh | bash
+curl -fsSL https://apt.roelof.co.za/setup.sh | bash -s -- --cuda   # also NVIDIA's CUDA repository
 sudo apt -y install simply-cpp-onnxruntime
 ```
 
